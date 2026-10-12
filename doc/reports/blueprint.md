@@ -34,13 +34,18 @@ Số mẫu timed: 20; warm-up: 2; phương pháp: linear.
 | Presidio | 23.708 | 27.397 | 27.435 | Đã đo Task 12 |
 | NeMo input | 1506.466 | 2227.530 | 2609.772 | Đã đo Task 12 |
 | Input guard sequential | 1525.475 | 2254.125 | 2627.735 | Đã đo Task 12 |
-| RAG | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
-| NeMo output | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
+| RAG | 8172.893 | 10517.209 | 11374.258 | Đo bổ sung, ngoài Task 12 |
+| NeMo output | 1581.31 | 2699.45 | 3135.151 | Đo bổ sung, ngoài Task 12 |
 | Full guard / short-circuit request | chưa đo | chưa đo | chưa đo | Không suy từ input_guard_ms |
 
 Input-layer budget target: 500ms; kết quả thực tế p95 = 2254.125ms, budget_ok = false.
 Bottleneck chính là NeMo self-check gọi LLM qua 9router. Kế hoạch: đo full guard riêng,
 tăng batch/caching hoặc dùng model nhanh hơn, rồi mới áp target 500ms.
+
+RAG và NeMo output được đo bổ sung với 2 warm-up + 20 mẫu mỗi scope, cùng cách
+tính percentile nội suy tuyến tính. RAG chậm do dense search encode lại từng query;
+NeMo output chậm do gọi LLM self-check. Full guard request chưa đo vì cần nối
+hai runtime (RAG trên Python 3.13 và NeMo trên venv 3.11) trong cùng một process.
 
 ## CI gates đề xuất
 
