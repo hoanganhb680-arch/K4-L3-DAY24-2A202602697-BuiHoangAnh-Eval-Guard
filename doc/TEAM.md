@@ -8,7 +8,7 @@ Trưởng nhóm/người nộp: Bui Hoang Anh - 2A202602697
 
 Ngày lab/deadline áp dụng: 2026-10-12 23:59 — Asia/Ho_Chi_Minh (UTC+07:00)
 
-Commit dùng để chấm: 540ec0b7c9cbee4c8513e3cb13b1301b1c3e5b4c
+Commit dùng để chấm: bed7338b0bac6be3d18b3293c9d1696e6a6dc294
 
 Mỗi nhóm nộp một repo. Điền đủ thành viên và một mục INDIVIDUAL cho từng người.
 
