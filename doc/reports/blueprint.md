@@ -1,20 +1,25 @@
 # Blueprint CI/CD cho RAG và guardrails
 
-Nhóm: {{Tên nhóm}}
+Nhóm: Nhóm K4 Track 3A
 
-Người phụ trách: {{Họ tên và MSSV}}
+Người phụ trách: Bui Hoang Anh - 2A202602697
 
 Đây là **đề xuất CI/CD**, không phải workflow đã được triển khai/chạy.
 Nguồn kết quả: artifacts/ragas_50q.json, judge_results.json, guard_results.json.
-Run timestamp: {{created_at}}; guard models: {{metadata.models.guard}}.
-Models generation/evaluator/judge từ A/B: {{models theo từng vai trò và nguồn report}}.
+Run timestamp: 2026-10-12T12:01:56+00:00; guard models: `cx/gpt-6-luna`.
+Models generation/evaluator/judge từ A/B: generation `gemini-3.1-flash-lite`,
+evaluator `cx/gpt-6-luna` + `BAAI/bge-m3`, judge `cx/gpt-6-luna`.
 
 ## Kiến trúc và failure action
 
 Input → Presidio → NeMo input → RAG → NeMo output → response.
 Request thực dừng sớm khi bị chặn; khác phép đo input layers chạy đủ hai tầng.
 
-{{Mô tả data flow, failure action, log/redact, nơi giữ secrets và điều kiện fallback.}}
+Presidio quét CCCD/CMND, số điện thoại Việt Nam và email; nếu có PII thì chặn trước
+NeMo. NeMo input dùng built-in self-check input, NeMo output dùng self-check output
+để từ chối dữ liệu cá nhân/credentials. Secrets nằm ngoài sandbox, chỉ qua `.env`.
+Nếu LLM generation lỗi thì fallback extractive; guard không dùng keyword để xác định
+block mà đọc activated rails.
 
 ## Phạm vi và số đo latency
 
@@ -22,21 +27,20 @@ Bắt buộc Task 12: **input_layers_sequential**, Presidio + NeMo input, không
 short-circuit. Engines tạo trước đo; có hai warm-up thật không tính vào mẫu.
 Percentile nội suy tuyến tính từ raw samples; tổng từ tổng từng sample.
 
-Số mẫu timed: {{n_samples}}; warm-up: {{warmup_runs}};
-phương pháp: {{percentile_method}}.
+Số mẫu timed: 20; warm-up: 2; phương pháp: linear.
 
 | Layer / scope | P50 ms | P95 ms | P99 ms | Tình trạng |
 |---|---|---|---|---|
-| Presidio | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| NeMo input | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
-| Input guard sequential | {{p50}} | {{p95}} | {{p99}} | {{Kết quả đo Task 12}} |
+| Presidio | 23.708 | 27.397 | 27.435 | Đã đo Task 12 |
+| NeMo input | 1506.466 | 2227.530 | 2609.772 | Đã đo Task 12 |
+| Input guard sequential | 1525.475 | 2254.125 | 2627.735 | Đã đo Task 12 |
 | RAG | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
 | NeMo output | chưa đo | chưa đo | chưa đo | Ngoài phạm vi bắt buộc |
 | Full guard / short-circuit request | chưa đo | chưa đo | chưa đo | Không suy từ input_guard_ms |
 
-Input-layer budget target: 500ms; kết quả thực tế/budget_ok: {{giá trị và bool}}.
-{{Nêu bottleneck nếu vượt target. Nếu chưa đo các phần ngoài phạm vi, giữ “chưa đo”
-và nêu kế hoạch lấy mẫu/warm-up/timestamps; nếu đã đo thì thay bằng số và phương pháp.}}
+Input-layer budget target: 500ms; kết quả thực tế p95 = 2254.125ms, budget_ok = false.
+Bottleneck chính là NeMo self-check gọi LLM qua 9router. Kế hoạch: đo full guard riêng,
+tăng batch/caching hoặc dùng model nhanh hơn, rồi mới áp target 500ms.
 
 ## CI gates đề xuất
 
@@ -45,16 +49,21 @@ và nêu kế hoạch lấy mẫu/warm-up/timestamps; nếu đã đo thì thay b
 - Full guard P95 <500ms chỉ áp dụng sau khi thực sự đo full guard.
 
 Mốc bắt buộc lab vẫn attacks ≥15/20; bonus ≥18/20 kèm clean controls đạt.
-{{Đề xuất lệnh job và cách script trả nonzero khi không đạt. MIN_* là biến đề
-xuất, không tự làm quality gate nếu runner chưa kiểm tra ngưỡng. Ghi rõ workflow
-chưa triển khai, hoặc dẫn bằng chứng nếu nhóm thực sự đã triển khai.}}
+Đề xuất một script chạy three runners rồi so sánh số liệu bằng `report_contracts`
+và trả nonzero khi ngưỡng không đạt (`MIN_*` là biến cấu hình CI). Workflow này
+hiện chưa triển khai thật trong repo.
 
 ## Monitoring và cải tiến
 
-{{Nêu metric, ngưỡng cảnh báo, cách lấy samples, xử lý false positives, drift,
-privacy và người xử lý. Dùng kết quả thật và ghi giới hạn của bộ 50/20/8/4.}}
+Cảnh báo khi clean false_positive_rate tăng, adversarial pass rate giảm, κ giảm
+dưới 0.4, hoặc input_guard_ms p95 tăng đột biến. Lấy log PII/decision/activated rails
+và response time mỗi request; autô-redact PII. Bộ dữ liệu 50/20/8/4 là nhỏ, cần
+đánh giá định kỳ trên sample lớn hơn và kiểm tra drift theo phiên bản chính sách.
 
-RAGAS mean/worst distribution: {{giá trị}}.
-Cohen’s κ: {{giá trị}}.
-Attacks passed: {{số lượng}}/20; clean false_positive_rate: {{giá trị}}.
-{{Nêu 3–5 câu cải tiến có thể kiểm tra, gắn với bằng chứng của nhóm.}}
+RAGAS mean/worst distribution: multi_hop mean 0.6917.
+Cohen’s κ: 0.8.
+Attacks passed: 18/20; clean false_positive_rate: 0.0.
+
+Các cải tiến có thể kiểm tra: thêm bước phân rã multi-hop trước when trả lời,
+giữ chunk theo từng phiên bản chính sách, giảm false positive bằng cách giới hạn
+entity PII, và đo full guard latency riêng.
